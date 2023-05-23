@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 )
 
 // JSEmbedder is an interface that Components can fulfill to include some
@@ -13,7 +14,7 @@ import (
 type JSEmbedder interface {
 	// EmbedJS returns the JavaScript, without <script> tags, that should
 	// be embedded directly in the output HTML.
-	EmbedJS(context.Context) string
+	EmbedJS(context.Context) template.JS
 }
 
 // JSLinker is an interface that Components can fulfill to include some
@@ -29,8 +30,8 @@ type JSLinker interface {
 	LinkJS(context.Context) []string
 }
 
-func getComponentJSEmbeds(ctx context.Context, component Component) string {
-	var results string
+func getComponentJSEmbeds(ctx context.Context, component Component) template.JS {
+	var results template.JS
 	seen := map[string]struct{}{}
 	components := getRecursiveComponents(ctx, component)
 	for _, comp := range components {
@@ -44,9 +45,9 @@ func getComponentJSEmbeds(ctx context.Context, component Component) string {
 			continue
 		}
 		seen[checksum] = struct{}{}
-		results += fmt.Sprintf(`
+		results += template.JS(fmt.Sprintf(`
 /* embedded JavaScript from %T */
-%s`, comp, script)
+%s`, comp, script))
 	}
 	return results
 }

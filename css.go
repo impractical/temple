@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 )
 
 // CSSEmbedder is an interface that Components can fulfill to include some CSS
@@ -16,7 +17,7 @@ type CSSEmbedder interface {
 	//
 	// If this Component embeds any other Components, it should include
 	// their EmbedCSS output in its own EmbedCSS output.
-	EmbedCSS(context.Context) string
+	EmbedCSS(context.Context) template.CSS
 }
 
 // CSSLinker is an interface that Components can fulfill to include some CSS
@@ -31,8 +32,8 @@ type CSSLinker interface {
 	LinkCSS(context.Context) []string
 }
 
-func getComponentCSSEmbeds(ctx context.Context, component Component) string {
-	var results string
+func getComponentCSSEmbeds(ctx context.Context, component Component) template.CSS {
+	var results template.CSS
 	seen := map[string]struct{}{}
 	components := getRecursiveComponents(ctx, component)
 	for _, comp := range components {
@@ -46,9 +47,9 @@ func getComponentCSSEmbeds(ctx context.Context, component Component) string {
 			continue
 		}
 		seen[checksum] = struct{}{}
-		results += fmt.Sprintf(`
+		results += template.CSS(fmt.Sprintf(`
 /* embedded CSS from %T */
-%s`, comp, css)
+%s`, comp, css))
 	}
 	return results
 }

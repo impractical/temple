@@ -81,11 +81,11 @@ type RenderData[SiteType Site, PageType Renderable] struct {
 
 	// EmbeddedJS is the result of calling EmbedJS on the Renderable, if
 	// the Renderable supports the JSEmbedder interface.
-	EmbeddedJS string
+	EmbeddedJS template.JS
 
 	// EmbeddedCSS is the result of calling EmbedCSS on the Renderable, if
 	// the Renderable supports the CSSEmbedder interface.
-	EmbeddedCSS string
+	EmbeddedCSS template.CSS
 
 	// LinkedJS is the result of calling LinkJS on the Renderable, if the
 	// Renderable supports the JSLinker interface.
