@@ -7,8 +7,6 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
-
-	"yall.in"
 )
 
 var (
@@ -107,9 +105,8 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 			err := closer.Close()
 			// if there's an error closing it, logging it's about all we can do
 			if err != nil {
-				yall.FromContext(ctx).
-					WithError(err).
-					Error("error closing response writer")
+				logger(ctx).
+					ErrorContext(ctx, "error closing response writer", "error", err)
 			}
 		}
 	}()
@@ -126,9 +123,8 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 	// page
 
 	// but first we're logging whatever went wrong
-	yall.FromContext(ctx).
-		WithError(err).
-		Error("error rendering page")
+	logger(ctx).
+		ErrorContext(ctx, "error rendering page", "error", err)
 
 	// now let's render the server error page
 	if pager, ok := Site(site).(ServerErrorPager); ok {
@@ -136,9 +132,8 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 		if err != nil {
 			// if we can't do that, everything's doomed, doomed, doomed
 			// just log it and we'll move on
-			yall.FromContext(ctx).
-				WithError(err).
-				Error("error rendering server error page")
+			logger(ctx).
+				ErrorContext(ctx, "error rendering server error page", "error", err)
 		}
 		return
 	}
@@ -146,9 +141,8 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 	// there's no default server error page, write a server error message
 	_, err = out.Write([]byte("Server error."))
 	if err != nil {
-		yall.FromContext(ctx).
-			WithError(err).
-			Error("error writing server error message")
+		logger(ctx).
+			ErrorContext(ctx, "error writing server error message", "error", err)
 	}
 }
 

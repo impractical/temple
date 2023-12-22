@@ -2,11 +2,10 @@ package temple_test
 
 import (
 	"context"
+	"log/slog"
 	"os"
 
 	"impractical.co/temple"
-	"yall.in"
-	"yall.in/colour"
 )
 
 type MySite struct {
@@ -68,7 +67,7 @@ func ExampleRender_basic() {
 	}
 
 	// usually the context comes from the request, but here we're building it from scratch and adding a logger
-	ctx := yall.InContext(context.Background(), yall.New(colour.New(os.Stderr, yall.Debug)))
+	ctx := temple.LoggingContext(context.Background(), slog.Default())
 
 	site := MySite{
 		CachedSite: temple.NewCachedSite(templates),
