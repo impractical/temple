@@ -199,7 +199,7 @@ func getTemplate(ctx context.Context, site Site, page Renderable) (*template.Tem
 }
 
 func getRecursiveComponents(ctx context.Context, component Component) []Component {
-	results := []Component{component}
+	results := []Component{}
 
 	if uses, ok := component.(ComponentUser); ok {
 		children := uses.UseComponents(ctx)
@@ -207,6 +207,9 @@ func getRecursiveComponents(ctx context.Context, component Component) []Componen
 			results = append(results, getRecursiveComponents(ctx, child)...)
 		}
 	}
+
+	results = append(results, component)
+
 	return results
 }
 
