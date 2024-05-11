@@ -18,12 +18,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['stable', 'oldstable']
+        go:
+          - 'stable'
+          - 'oldstable'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
 
@@ -33,13 +35,13 @@ jobs:
           echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
       - name: Go Build Cache
-        uses: actions/cache@v3.3.1
+        uses: actions/cache@v4.0.2
         with:
           path: ${{ steps.go-cache-paths.outputs.go-build }}
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
       - name: Go Mod Cache
-        uses: actions/cache@v3.3.1
+        uses: actions/cache@v4.0.2
         with:
           path: ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
