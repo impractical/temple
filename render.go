@@ -7,6 +7,10 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -111,6 +115,10 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 		}
 	}()
 
+	tracer := otel.GetTracerProvider().Tracer("impractical.co/temple")
+	var span trace.Span
+	ctx, span = tracer.Start(ctx, "render")
+	defer span.End()
 	// try to render the page
 	err := basicRender(ctx, out, site, page)
 
@@ -125,6 +133,11 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 	// but first we're logging whatever went wrong
 	logger(ctx).
 		ErrorContext(ctx, "error rendering page", "error", err)
+
+	span.AddEvent("error rendering span",
+		trace.WithStackTrace(true),
+		trace.WithAttributes(attribute.String("error", err.Error())),
+	)
 
 	// now let's render the server error page
 	if pager, ok := Site(site).(ServerErrorPager); ok {
@@ -170,10 +183,14 @@ func basicRender[SiteType Site, PageType Renderable](ctx context.Context, output
 }
 
 func getTemplate(ctx context.Context, site Site, page Renderable) (*template.Template, error) {
+	span := trace.SpanFromContext(ctx)
 	key := page.Key(ctx)
 	if cache, ok := site.(TemplateCacher); ok {
 		cached := cache.GetCachedTemplate(ctx, key)
 		if cached != nil {
+			span.AddEvent("got cached template",
+				trace.WithAttributes(attribute.String("key", key)),
+			)
 			return cached, nil
 		}
 	}
@@ -189,6 +206,10 @@ func getTemplate(ctx context.Context, site Site, page Renderable) (*template.Tem
 	if cache, ok := site.(TemplateCacher); ok {
 		cache.SetCachedTemplate(ctx, key, parsed)
 	}
+	span.AddEvent("parsed templates",
+		trace.WithAttributes(attribute.String("key", key)),
+		trace.WithAttributes(attribute.StringSlice("templates", tmplPaths)),
+	)
 	return parsed, nil
 }
 
