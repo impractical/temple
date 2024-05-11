@@ -47,7 +47,7 @@ func getComponentJSEmbeds(ctx context.Context, component Component) template.JS 
 		seen[checksum] = struct{}{}
 		results += template.JS(fmt.Sprintf(`
 /* embedded JavaScript from %T */
-%s`, comp, script))
+%s`, comp, script)) // #nosec G203
 	}
 	return results
 }
