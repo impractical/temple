@@ -25,8 +25,8 @@ var (
 
 // Component is an interface for a UI component that can be rendered to HTML.
 type Component interface {
-	// TemplatePaths returns a list of filepaths to html/template contents
-	// that need to be parsed before the component can be rendered.
+	// Templates returns a list of filepaths to html/template contents that
+	// need to be parsed before the component can be rendered.
 	Templates(context.Context) []string
 }
 
