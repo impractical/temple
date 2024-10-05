@@ -49,7 +49,7 @@ func getComponentCSSEmbeds(ctx context.Context, component Component) template.CS
 		seen[checksum] = struct{}{}
 		results += template.CSS(fmt.Sprintf(`
 /* embedded CSS from %T */
-%s`, comp, css))
+%s`, comp, css)) // #nosec G203
 	}
 	return results
 }
