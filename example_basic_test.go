@@ -38,6 +38,12 @@ func (h HomePage) ExecutedTemplate(_ context.Context) string {
 	return h.Layout.BaseTemplate()
 }
 
+func (HomePage) EmbedCSS(_ context.Context) []temple.CSSInline {
+	return []temple.CSSInline{
+		{TemplatePath: "home.css.tmpl"},
+	}
+}
+
 type BaseLayout struct {
 }
 
@@ -59,11 +65,13 @@ func ExampleRender_basic() {
 <html lang="en">
 	<head>
 		<title>{{ .Site.Title }}</title>
+		{{ .CSS }}
 	</head>
 	<body>
 		{{ block "body" . }}{{ end }}
 	</body>
 </html>`,
+		"home.css.tmpl": "body { font: red; }",
 	}
 
 	// usually the context comes from the request, but here we're building it from scratch and adding a logger
@@ -81,6 +89,10 @@ func ExampleRender_basic() {
 	// <html lang="en">
 	// 	<head>
 	// 		<title>My Example Site</title>
+	// 		<style>
+	// body { font: red; }
+	// </style>
+	//
 	// 	</head>
 	// 	<body>
 	// 		Hello, world. This is my home page.
