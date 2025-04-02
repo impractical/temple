@@ -7,6 +7,8 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"maps"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -81,21 +83,19 @@ type RenderData[SiteType Site, PageType Renderable] struct {
 	// Renderable type.
 	Page PageType
 
-	// EmbeddedJS is the result of calling EmbedJS on the Renderable, if
-	// the Renderable supports the JSEmbedder interface.
-	EmbeddedJS template.JS
+	// CSS contains any <style> or <link> tags containing CSS that need to
+	// be rendered. It should be rendered as part of the page's <head> tag.
+	CSS template.HTML
 
-	// EmbeddedCSS is the result of calling EmbedCSS on the Renderable, if
-	// the Renderable supports the CSSEmbedder interface.
-	EmbeddedCSS template.CSS
+	// HeaderJS contains any <script> tags intended to be rendered at the
+	// head of the document, before any displayed elements have been
+	// loaded. It is usually rendered in the page's <head> tag.
+	HeaderJS template.HTML
 
-	// LinkedJS is the result of calling LinkJS on the Renderable, if the
-	// Renderable supports the JSLinker interface.
-	LinkedJS []string
-
-	// LinkedCSS is the result of calling LinkCSS on the Renderable, if the
-	// Renderable supports the CSSLinker interface.
-	LinkedCSS []string
+	// FooterJS contains any <script> tags intended to be rendered at the
+	// end of a document, after any displayed elements have been loaded. It
+	// is usually rendered right before the page's closing </body> tag.
+	FooterJS template.HTML
 }
 
 // Render renders the passed Renderable to the Writer. If it can't, a server
@@ -134,7 +134,7 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 	logger(ctx).
 		ErrorContext(ctx, "error rendering page", "error", err)
 
-	span.AddEvent("error rendering span",
+	span.AddEvent("error rendering page",
 		trace.WithStackTrace(true),
 		trace.WithAttributes(attribute.String("error", err.Error())),
 	)
@@ -165,13 +165,116 @@ func basicRender[SiteType Site, PageType Renderable](ctx context.Context, output
 		return err
 	}
 
+	components := getRecursiveComponents(ctx, page)
+	graphs := buildGraphs(ctx, components)
+	cssResources, err := walkGraph(ctx, graphs.css)
+	if err != nil {
+		return err
+	}
+	headJSResources, err := walkGraph(ctx, graphs.headJS)
+	if err != nil {
+		return err
+	}
+	footJSResources, err := walkGraph(ctx, graphs.footJS)
+	if err != nil {
+		return err
+	}
+	var css, headJS, footJS strings.Builder
+	cssTmpl := template.New("")
+	headJSTmpl := template.New("")
+	footJSTmpl := template.New("")
+	for _, cssResource := range cssResources {
+		err = parseResource(ctx, site, cssResource.getCSS, cssResource.getKey(), cssTmpl)
+		if err != nil {
+			return err
+		}
+	}
+	for _, jsResource := range headJSResources {
+		err = parseResource(ctx, site, jsResource.getJS, jsResource.getKey(), headJSTmpl)
+		if err != nil {
+			return err
+		}
+	}
+	for _, jsResource := range footJSResources {
+		err = parseResource(ctx, site, jsResource.getJS, jsResource.getKey(), footJSTmpl)
+		if err != nil {
+			return err
+		}
+	}
+	// loop through again, now that everything has been parsed
+	for _, cssResource := range cssResources {
+		key := cssResource.getKey()
+		data := CSSRenderData[SiteType, PageType]{
+			Site: site,
+			Page: page,
+		}
+		if inline, ok := cssResource.(CSSInline); ok {
+			data.CSS = inline
+		}
+		if link, ok := cssResource.(CSSLink); ok {
+			data.CSSLink = link
+		}
+		// TODO: combine CSS style blocks, if possible
+		err = cssTmpl.ExecuteTemplate(&css, key, data)
+		if err != nil {
+			return fmt.Errorf("error executing CSS template %q for %T: %w", key, page, err)
+		}
+		_, err = css.WriteString("\n")
+		if err != nil {
+			return err
+		}
+	}
+	for _, jsResource := range footJSResources {
+		key := jsResource.getKey()
+		data := JSRenderData[SiteType, PageType]{
+			Site: site,
+			Page: page,
+		}
+		if inline, ok := jsResource.(JSInline); ok {
+			data.JS = inline
+		}
+		if link, ok := jsResource.(JSLink); ok {
+			data.JSLink = link
+		}
+		// TODO: combine JS <script> blocks, if possible
+		err = footJSTmpl.ExecuteTemplate(&footJS, key, data)
+		if err != nil {
+			return fmt.Errorf("error executing foot JS template %q for %T: %w", key, page, err)
+		}
+		_, err = footJS.WriteString("\n")
+		if err != nil {
+			return err
+		}
+	}
+	for _, jsResource := range headJSResources {
+		key := jsResource.getKey()
+		data := JSRenderData[SiteType, PageType]{
+			Site: site,
+			Page: page,
+		}
+		if inline, ok := jsResource.(JSInline); ok {
+			data.JS = inline
+		}
+		if link, ok := jsResource.(JSLink); ok {
+			data.JSLink = link
+		}
+		// TODO: combine JS <script> blocks, if possible
+		err = headJSTmpl.ExecuteTemplate(&headJS, key, data)
+		if err != nil {
+			return fmt.Errorf("error executing head JS template %q for %T: %w", key, page, err)
+		}
+		_, err = headJS.WriteString("\n")
+		if err != nil {
+			return err
+		}
+	}
+
 	data := RenderData[SiteType, PageType]{
-		Site:        site,
-		Page:        page,
-		EmbeddedJS:  getComponentJSEmbeds(ctx, page),
-		LinkedJS:    getComponentJSLinks(ctx, page),
-		EmbeddedCSS: getComponentCSSEmbeds(ctx, page),
-		LinkedCSS:   getComponentCSSLinks(ctx, page),
+		Site:     site,
+		Page:     page,
+		CSS:      template.HTML(css.String()),    //nolint:gosec // we trust this HTML, people should not let attackers define arbitrary CSS/JS
+		HeaderJS: template.HTML(headJS.String()), //nolint:gosec // we trust this HTML, people should not let attackers define arbitrary CSS/JS
+		FooterJS: template.HTML(footJS.String()), //nolint:gosec // we trust this HTML, people should not let attackers define arbitrary CSS/JS
 	}
 
 	executed := page.ExecutedTemplate(ctx)
@@ -182,21 +285,76 @@ func basicRender[SiteType Site, PageType Renderable](ctx context.Context, output
 	return nil
 }
 
+func parseResource(ctx context.Context, site Site, getFunc func(fs.FS) (string, error), key string, target *template.Template) error { //nolint:revive // yeah, 5 args is a lot, but I can't see any way to fix this one
+	span := trace.SpanFromContext(ctx)
+	var body string
+	if cache, ok := site.(ResourceCacher); ok {
+		cached := cache.GetCachedResource(ctx, key)
+		if cached != nil {
+			span.AddEvent("got cached resource",
+				trace.WithAttributes(attribute.String("key", key),
+					attribute.String("body", *cached)),
+			)
+			body = *cached
+		}
+	}
+	if body == "" {
+		read, err := getFunc(site.TemplateDir(ctx))
+		if err != nil {
+			return err
+		}
+		span.AddEvent("read uncached resource from fs",
+			trace.WithAttributes(attribute.String("key", key),
+				attribute.String("body", read)),
+		)
+		body = read
+	}
+	if cache, ok := site.(ResourceCacher); ok {
+		cache.SetCachedResource(ctx, key, body)
+	}
+	_, err := target.New(key).Parse(body)
+	if err != nil {
+		return err
+	}
+	span.AddEvent("parsed resource",
+		trace.WithAttributes(attribute.String("key", key)),
+	)
+	return nil
+}
+
 func getTemplate(ctx context.Context, site Site, page Renderable) (*template.Template, error) {
 	span := trace.SpanFromContext(ctx)
 	key := page.Key(ctx)
+	tmplPaths := getComponentTemplatePaths(ctx, page)
+	if len(tmplPaths) < 1 {
+		return nil, fmt.Errorf("error rendering %T: %w", page, ErrNoTemplatePath)
+	}
 	if cache, ok := site.(TemplateCacher); ok {
 		cached := cache.GetCachedTemplate(ctx, key)
 		if cached != nil {
 			span.AddEvent("got cached template",
 				trace.WithAttributes(attribute.String("key", key)),
 			)
-			return cached, nil
+			neededTemplates := make(map[string]struct{}, len(tmplPaths))
+			for _, path := range tmplPaths {
+				neededTemplates[path] = struct{}{}
+			}
+			for _, cachedTmpl := range cached.Templates() {
+				if _, ok := neededTemplates[cachedTmpl.Name()]; !ok {
+					continue
+				}
+				delete(neededTemplates, cachedTmpl.Name())
+			}
+			if len(neededTemplates) < 1 {
+				return cached, nil
+			}
+			missingTemplates := make([]string, 0, len(neededTemplates))
+			for path := range neededTemplates {
+				missingTemplates = append(missingTemplates, path)
+			}
+			span.AddEvent("templates expected and templates in the parse tree didn't match, ignoring cached template",
+				trace.WithAttributes(attribute.StringSlice("missing_templates", missingTemplates)))
 		}
-	}
-	tmplPaths := getComponentTemplatePaths(ctx, page)
-	if len(tmplPaths) < 1 {
-		return nil, fmt.Errorf("error rendering %T: %w", page, ErrNoTemplatePath)
 	}
 	funcMap := getComponentFuncMap(ctx, site, page)
 	parsed, err := parseTemplates(site.TemplateDir(ctx), funcMap, tmplPaths...)
@@ -291,11 +449,7 @@ func parseTemplates(fsys fs.FS, funcs template.FuncMap, patterns ...string) (*te
 // overriding the values in `in` if they have the same keys.
 func mergeFuncMaps(in template.FuncMap, page template.FuncMap) template.FuncMap {
 	res := template.FuncMap{}
-	for k, v := range in {
-		res[k] = v
-	}
-	for k, v := range page {
-		res[k] = v
-	}
+	maps.Copy(res, in)
+	maps.Copy(res, page)
 	return res
 }

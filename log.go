@@ -31,6 +31,13 @@ func LoggingContext(ctx context.Context, logger *slog.Logger) context.Context {
 	return context.WithValue(ctx, slogCtxKey, logger)
 }
 
+// SetInLogger updates the slog.Logger embedded in the passed context.Context
+// to associate the passed keys and values with it. Any log lines temple prints
+// using the returned context.Context will include the passed keys and values.
+func SetInLogger(ctx context.Context, args ...any) context.Context {
+	return LoggingContext(ctx, logger(ctx).With(args...))
+}
+
 type noopHandler struct{}
 
 // Enabled always returns false for the noopHandler.

@@ -41,6 +41,25 @@ type TemplateCacher interface {
 	SetCachedTemplate(ctx context.Context, key string, tmpl *template.Template)
 }
 
+// ResourceCacher is an optional interface for Sites. Those fulfilling it can
+// cache the templates their resources use, to save on the overhead of parsing
+// the template each time. The templates being parsed for a given key should be
+// the same every time, as should the template getting executed, but the data
+// may still be different, so the output HTML cannot be safely presumed to be
+// cacheable.
+type ResourceCacher interface {
+	// GetCachedResource returns the *string specified by the passed key.
+	// It should return nil if the template hasn't been cached yet.
+	GetCachedResource(ctx context.Context, key string) *string
+
+	// SetCachedResource stores the passed string under the passed key, for
+	// later retrieval with GetCachedResource.
+	//
+	// Any errors encountered should be logged, but as this is a
+	// best-effort operation, will not be surfaced outside the function.
+	SetCachedResource(ctx context.Context, key, resource string)
+}
+
 // ServerErrorPager defines an interface that Sites can optionally implement.
 // If a Site implements ServerErrorPager and Render encounters an error,
 // the output of ServerErrorPage will be rendered.
@@ -50,6 +69,7 @@ type ServerErrorPager interface {
 
 var _ Site = &CachedSite{}
 var _ TemplateCacher = &CachedSite{}
+var _ ResourceCacher = &CachedSite{}
 
 // CachedSite is an implementation of the Site interface that can be embedded
 // in other Site implementations. It fulfills the Site interface and the
@@ -62,6 +82,9 @@ type CachedSite struct {
 	templateCache   map[string]*template.Template
 	templateCacheMu sync.RWMutex
 
+	resourceCache   map[string]string
+	resourceCacheMu sync.RWMutex
+
 	// templateDir is where Render will look for the templates required by
 	// Components.
 	templateDir fs.FS
@@ -72,6 +95,7 @@ func NewCachedSite(templates fs.FS) *CachedSite {
 	return &CachedSite{
 		templateCache: map[string]*template.Template{},
 		templateDir:   templates,
+		resourceCache: map[string]string{},
 	}
 }
 
@@ -96,6 +120,29 @@ func (s *CachedSite) SetCachedTemplate(_ context.Context, key string, tmpl *temp
 	s.templateCacheMu.Lock()
 	defer s.templateCacheMu.Unlock()
 	s.templateCache[key] = tmpl
+}
+
+// GetCachedResource returns the cached resource associated with the passed
+// key, if one exists. If no resource is cached for that key, it returns nil.
+//
+// It can safely be used by multiple goroutines.
+func (s *CachedSite) GetCachedResource(_ context.Context, key string) *string {
+	s.resourceCacheMu.RLock()
+	defer s.resourceCacheMu.RUnlock()
+	res, ok := s.resourceCache[key]
+	if !ok {
+		return nil
+	}
+	return &res
+}
+
+// SetCachedResource caches a resource for the given key.
+//
+// It can safely be used by multiple goroutines.
+func (s *CachedSite) SetCachedResource(_ context.Context, key, resource string) {
+	s.resourceCacheMu.Lock()
+	defer s.resourceCacheMu.Unlock()
+	s.resourceCache[key] = resource
 }
 
 // TemplateDir returns an fs.FS containing all the templates needed to render a
