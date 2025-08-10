@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"maps"
+	"strconv"
 	"strings"
 )
 
@@ -161,9 +162,13 @@ func (block JSInline) getJS(dir fs.FS) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// html/template doesn't allow setting the type attribute of a script
+	// within the template. See https://go.dev/issues/59112. To get around
+	// this, we use string concatenation to insert the type ourselves, if
+	// necessary.
 	typestring := block.Type
 	if typestring != "" {
-		typestring = ` type="` + typestring + `"`
+		typestring = ` type=` + strconv.Quote(typestring)
 	}
 	return `<script` + typestring + `{{if .JS.CrossOrigin }} crossorigin="{{ .JS.CrossOrigin }}"{{ end }}{{ if .JS.NoModule }} nomodule{{ end }}{{ if .JS.Nonce }} nonce="{{.Nonce}}"{{ end }}{{ if .JS.ReferrerPolicy }} referrerpolicy="{{ .JS.ReferrerPolicy }}"{{ end }}{{ range $k, $v := .JS.Attrs }}{{ $k }}{{ if $v }}="{{$v}}"{{ end }}{{ end }}>
 ` + string(contents) + `
@@ -425,7 +430,15 @@ func (tag JSLink) getJS(dir fs.FS) (string, error) {
 		}
 		return string(contents), nil
 	}
-	return `<script{{ if .JSLink.Type }}type="{{ .JSLink.Type }}"{{ end }} src="{{ .JSLink.Src }}"{{ if .JSLink.Async }} async{{ end }}{{ if .JSLink.AttributionSrc }}attributionsrc{{if .JSLink.AttributionSrcURLs }}="{{ .JSLink.AttributionSrcURLs }}"{{ end }}{{ end }}{{ if .JSLink.Blocking }} blocking="{{ .JSLink.Blocking }}"{{ end }}{{if .JSLink.CrossOrigin }} crossorigin="{{ .JSLink.CrossOrigin }}"{{ end }}{{ if .JSLink.Defer }} defer{{ end }}{{ if .JSLink.FetchPriority }} fetchpriority="{{ .JSLink.FetchPriority }}"{{ end }}{{ if .JSLink.Integrity }} integrity="{{ .JSLink.Integrity }}"{{ end }}{{ if .JSLink.NoModule }} nomodule{{ end }}{{ if .JSLink.Nonce }} nonce="{{.Nonce}}"{{ end }}{{ if .JSLink.ReferrerPolicy }} referrerpolicy="{{ .JSLink.ReferrerPolicy }}"{{ end }}{{ range $k, $v := .JSLink.Attrs }} {{ $k }}{{ if $v }}="{{$v}}"{{ end }}{{ end }}></script>`, nil
+	// html/template doesn't allow setting the type attribute of a script
+	// within the template. See https://go.dev/issues/59112. To get around
+	// this, we use string concatenation to insert the type ourselves, if
+	// necessary.
+	typestring := tag.Type
+	if typestring != "" {
+		typestring = ` type=` + strconv.Quote(typestring)
+	}
+	return `<script` + typestring + ` src="{{ .JSLink.Src }}"{{ if .JSLink.Async }} async{{ end }}{{ if .JSLink.AttributionSrc }}attributionsrc{{if .JSLink.AttributionSrcURLs }}="{{ .JSLink.AttributionSrcURLs }}"{{ end }}{{ end }}{{ if .JSLink.Blocking }} blocking="{{ .JSLink.Blocking }}"{{ end }}{{if .JSLink.CrossOrigin }} crossorigin="{{ .JSLink.CrossOrigin }}"{{ end }}{{ if .JSLink.Defer }} defer{{ end }}{{ if .JSLink.FetchPriority }} fetchpriority="{{ .JSLink.FetchPriority }}"{{ end }}{{ if .JSLink.Integrity }} integrity="{{ .JSLink.Integrity }}"{{ end }}{{ if .JSLink.NoModule }} nomodule{{ end }}{{ if .JSLink.Nonce }} nonce="{{.Nonce}}"{{ end }}{{ if .JSLink.ReferrerPolicy }} referrerpolicy="{{ .JSLink.ReferrerPolicy }}"{{ end }}{{ range $k, $v := .JSLink.Attrs }} {{ $k }}{{ if $v }}="{{$v}}"{{ end }}{{ end }}></script>`, nil
 }
 
 // getKey returns a cache key for the template for this tag. The cache key
