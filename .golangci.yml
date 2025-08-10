@@ -435,6 +435,11 @@ issues:
       - paralleltest
       text: "does not use range value in test Run"
 
+    # don't make me add nolint comments to my example files, it's rude
+    - path: "example_.*_test\\.go"
+      linters:
+        - goconst
+
   # Independently of option `exclude` we use default exclude patterns,
   # it can be disabled by this option.
   # To list all excluded by default patterns execute `golangci-lint run --help`.
