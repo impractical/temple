@@ -8,7 +8,7 @@ import (
 	"impractical.co/temple"
 )
 
-type BasicSite struct {
+type LinkedCSSSite struct {
 	// anonymously embedding a *CachedSite makes MySite a Site implementation
 	*temple.CachedSite
 
@@ -16,45 +16,52 @@ type BasicSite struct {
 	Title string
 }
 
-type BasicHomePage struct {
-	Name   string
-	Layout BasicLayout
+type LinkedCSSHomePage struct {
+	Layout LinkedCSSLayout
+	User   string
 }
 
-func (BasicHomePage) Templates(_ context.Context) []string {
+func (LinkedCSSHomePage) Templates(_ context.Context) []string {
 	return []string{"home.html.tmpl"}
 }
 
-func (h BasicHomePage) UseComponents(_ context.Context) []temple.Component {
+func (h LinkedCSSHomePage) UseComponents(_ context.Context) []temple.Component {
 	return []temple.Component{
 		h.Layout,
 	}
 }
 
-func (BasicHomePage) Key(_ context.Context) string {
+func (LinkedCSSHomePage) Key(_ context.Context) string {
 	return "home.html.tmpl"
 }
 
-func (h BasicHomePage) ExecutedTemplate(_ context.Context) string {
+func (h LinkedCSSHomePage) ExecutedTemplate(_ context.Context) string {
 	return h.Layout.BaseTemplate()
 }
 
-type BasicLayout struct {
+func (LinkedCSSHomePage) LinkCSS(_ context.Context) []temple.CSSLink {
+	return []temple.CSSLink{
+		{Href: "https://example.com/a.css", Rel: "stylesheet"},
+		{Href: "https://example.com/b.css", Rel: "stylesheet"},
+	}
 }
 
-func (b BasicLayout) Templates(_ context.Context) []string {
+type LinkedCSSLayout struct {
+}
+
+func (b LinkedCSSLayout) Templates(_ context.Context) []string {
 	return []string{b.BaseTemplate()}
 }
 
-func (BasicLayout) BaseTemplate() string {
+func (LinkedCSSLayout) BaseTemplate() string {
 	return "base.html.tmpl"
 }
 
-func ExampleRender_basic() {
+func ExampleRender_linkedCSS() {
 	// normally you'd use something like embed.FS or os.DirFS for this
 	// for example purposes, we're just hardcoding values
 	var templates = staticFS{
-		"home.html.tmpl": `{{ define "body" }}Hello, {{ .Page.Name }}. This is my home page.{{ end }}`,
+		"home.html.tmpl": `{{ define "body" }}Hello, {{ .Page.User }}. This is my home page.{{ end }}`,
 		"base.html.tmpl": `
 <!doctype html>
 <html lang="en">
@@ -73,13 +80,13 @@ func ExampleRender_basic() {
 	// usually the context comes from the request, but here we're building it from scratch and adding a logger
 	ctx := temple.LoggingContext(context.Background(), slog.Default())
 
-	site := BasicSite{
+	site := LinkedCSSSite{
 		CachedSite: temple.NewCachedSite(templates),
 		Title:      "My Example Site",
 	}
-	page := BasicHomePage{
-		Name:   "Visitor",
-		Layout: BasicLayout{},
+	page := LinkedCSSHomePage{
+		Layout: LinkedCSSLayout{},
+		User:   "Visitor",
 	}
 	temple.Render(ctx, os.Stdout, site, page)
 
@@ -87,7 +94,9 @@ func ExampleRender_basic() {
 	// <!doctype html>
 	// <html lang="en">
 	// 	<head>
-	// 		<title>My Example Site</title></head>
+	// 		<title>My Example Site</title><link href="https://example.com/a.css" rel="stylesheet">
+	// <link href="https://example.com/b.css" rel="stylesheet">
+	// </head>
 	// 	<body>
 	// 		Hello, Visitor. This is my home page.</body>
 	// </html>

@@ -8,7 +8,7 @@ import (
 	"impractical.co/temple"
 )
 
-type BasicSite struct {
+type InlineCSSSite struct {
 	// anonymously embedding a *CachedSite makes MySite a Site implementation
 	*temple.CachedSite
 
@@ -16,45 +16,52 @@ type BasicSite struct {
 	Title string
 }
 
-type BasicHomePage struct {
-	Name   string
-	Layout BasicLayout
+type InlineCSSHomePage struct {
+	Layout    InlineCSSLayout
+	User      string
+	FontColor string
 }
 
-func (BasicHomePage) Templates(_ context.Context) []string {
+func (InlineCSSHomePage) Templates(_ context.Context) []string {
 	return []string{"home.html.tmpl"}
 }
 
-func (h BasicHomePage) UseComponents(_ context.Context) []temple.Component {
+func (h InlineCSSHomePage) UseComponents(_ context.Context) []temple.Component {
 	return []temple.Component{
 		h.Layout,
 	}
 }
 
-func (BasicHomePage) Key(_ context.Context) string {
+func (InlineCSSHomePage) Key(_ context.Context) string {
 	return "home.html.tmpl"
 }
 
-func (h BasicHomePage) ExecutedTemplate(_ context.Context) string {
+func (h InlineCSSHomePage) ExecutedTemplate(_ context.Context) string {
 	return h.Layout.BaseTemplate()
 }
 
-type BasicLayout struct {
+func (InlineCSSHomePage) EmbedCSS(_ context.Context) []temple.CSSInline {
+	return []temple.CSSInline{
+		{TemplatePath: "home.css.tmpl"},
+	}
 }
 
-func (b BasicLayout) Templates(_ context.Context) []string {
+type InlineCSSLayout struct {
+}
+
+func (b InlineCSSLayout) Templates(_ context.Context) []string {
 	return []string{b.BaseTemplate()}
 }
 
-func (BasicLayout) BaseTemplate() string {
+func (InlineCSSLayout) BaseTemplate() string {
 	return "base.html.tmpl"
 }
 
-func ExampleRender_basic() {
+func ExampleRender_inlineCSS() {
 	// normally you'd use something like embed.FS or os.DirFS for this
 	// for example purposes, we're just hardcoding values
 	var templates = staticFS{
-		"home.html.tmpl": `{{ define "body" }}Hello, {{ .Page.Name }}. This is my home page.{{ end }}`,
+		"home.html.tmpl": `{{ define "body" }}Hello, {{ .Page.User }}. This is my home page.{{ end }}`,
 		"base.html.tmpl": `
 <!doctype html>
 <html lang="en">
@@ -68,18 +75,20 @@ func ExampleRender_basic() {
 		{{- .FooterJS -}}
 	</body>
 </html>`,
+		"home.css.tmpl": "body { font: {{ .Page.FontColor }}; }",
 	}
 
 	// usually the context comes from the request, but here we're building it from scratch and adding a logger
 	ctx := temple.LoggingContext(context.Background(), slog.Default())
 
-	site := BasicSite{
+	site := InlineCSSSite{
 		CachedSite: temple.NewCachedSite(templates),
 		Title:      "My Example Site",
 	}
-	page := BasicHomePage{
-		Name:   "Visitor",
-		Layout: BasicLayout{},
+	page := InlineCSSHomePage{
+		Layout:    InlineCSSLayout{},
+		User:      "Visitor",
+		FontColor: "red",
 	}
 	temple.Render(ctx, os.Stdout, site, page)
 
@@ -87,7 +96,10 @@ func ExampleRender_basic() {
 	// <!doctype html>
 	// <html lang="en">
 	// 	<head>
-	// 		<title>My Example Site</title></head>
+	// 		<title>My Example Site</title><style>
+	// body { font: red; }
+	// </style>
+	// </head>
 	// 	<body>
 	// 		Hello, Visitor. This is my home page.</body>
 	// </html>
