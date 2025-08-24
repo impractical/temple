@@ -42,7 +42,6 @@ func (h LinkedCSSHomePage) ExecutedTemplate(_ context.Context) string {
 func (LinkedCSSHomePage) LinkCSS(_ context.Context) []temple.CSSLink {
 	return []temple.CSSLink{
 		{Href: "https://example.com/a.css", Rel: "stylesheet"},
-		{Href: "https://example.com/b.css", Rel: "stylesheet"},
 	}
 }
 
@@ -95,7 +94,6 @@ func ExampleRender_linkedCSS() {
 	// <html lang="en">
 	// 	<head>
 	// 		<title>My Example Site</title><link href="https://example.com/a.css" rel="stylesheet">
-	// <link href="https://example.com/b.css" rel="stylesheet">
 	// </head>
 	// 	<body>
 	// 		Hello, Visitor. This is my home page.</body>
