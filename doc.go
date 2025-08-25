@@ -1,12 +1,11 @@
 // Package temple provides an HTML rendering framework built on top of the
 // html/template package.
 //
-// Temple is organized around Components and Renderables. A Component is some
-// piece of the HTML document that you want included in the page's output. A
-// Renderable is a Component that gets rendered itself rather than being
-// included in another Component. The homepage of a site is probably a
-// Renderable; the site's navbar is probably a Component, as is the base layout
-// that all pages have in common.
+// temple is organized around Components and Pages. A Component is some piece
+// of the HTML document that you want included in the page's output. A Page is
+// a Component that gets rendered itself rather than being included in another
+// Component. The homepage of a site is probably a Page; the site's navbar is
+// probably a Component, as is the base layout that all pages have in common.
 //
 // temple also has the concept of a Site. Each server should have a Site, which
 // acts as a singleton for the server and provides the fs.FS containing the

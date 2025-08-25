@@ -34,7 +34,7 @@ type cssResource interface {
 
 // CSSRenderData holds the information passed to the template when rendering
 // the template for a [CSSInline] or [CSSLink].
-type CSSRenderData[SiteType Site, PageType Renderable] struct {
+type CSSRenderData[SiteType Site, PageType Page] struct {
 	// CSS is the CSSInline struct being rendered. It may be empty if this
 	// data is for a CSSLink instead.
 	CSS CSSInline

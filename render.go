@@ -52,15 +52,15 @@ type FuncMapExtender interface {
 	FuncMap(context.Context) template.FuncMap
 }
 
-// Renderable is an interface for a page that can be passed to Render. It
-// defines a single logical page of the application, composed of one or more
-// Components. It should contain all the information needed to render the
-// Components to HTML.
-type Renderable interface {
+// Page is an interface for a page that can be passed to Render. It defines a
+// single logical page of the application, composed of one or more Components.
+// It should contain all the information needed to render the Components to
+// HTML.
+type Page interface {
 	Component
 
 	// Key is a unique key to use when caching this page so it doesn't need
-	// to be re-parsed. A good key is consistent, but unique per Renderable.
+	// to be re-parsed. A good key is consistent, but unique per Page.
 	Key(context.Context) string
 
 	// ExecutedTemplate is the template that needs to actually be executed
@@ -73,14 +73,14 @@ type Renderable interface {
 }
 
 // RenderData is the data that is passed to a page when rendering it.
-type RenderData[SiteType Site, PageType Renderable] struct {
+type RenderData[SiteType Site, PageType Page] struct {
 	// Site is an instance of the Site type, containing all the
 	// configuration and information about a Site. This can be used to
 	// avoid passing global configuration options to every single page.
 	Site SiteType
 
 	// Page is the information for a specific page, embedded in that page's
-	// Renderable type.
+	// Page type.
 	Page PageType
 
 	// CSS contains any <style> or <link> tags containing CSS that need to
@@ -98,11 +98,11 @@ type RenderData[SiteType Site, PageType Renderable] struct {
 	FooterJS template.HTML
 }
 
-// Render renders the passed Renderable to the Writer. If it can't, a server
-// error page is written instead. If the Site implements ServerErrorPager, that
-// will be rendered; if not, a simple text page indicating a server error will
-// be written.
-func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writer, site SiteType, page PageType) {
+// Render renders the passed Page to the Writer. If it can't, a server error
+// page is written instead. If the Site implements ServerErrorPager, that will
+// be rendered; if not, a simple text page indicating a server error will be
+// written.
+func Render[SiteType Site, PageType Page](ctx context.Context, out io.Writer, site SiteType, page PageType) {
 	defer func() {
 		// if the ResponseWriter can be closed, let's try to close it
 		if closer, ok := out.(io.Closer); ok {
@@ -159,7 +159,7 @@ func Render[SiteType Site, PageType Renderable](ctx context.Context, out io.Writ
 	}
 }
 
-func basicRender[SiteType Site, PageType Renderable](ctx context.Context, output io.Writer, site SiteType, page PageType) error {
+func basicRender[SiteType Site, PageType Page](ctx context.Context, output io.Writer, site SiteType, page PageType) error {
 	tmpl, err := getTemplate(ctx, site, page)
 	if err != nil {
 		return err
@@ -322,7 +322,7 @@ func parseResource(ctx context.Context, site Site, getFunc func(fs.FS) (string, 
 	return nil
 }
 
-func getTemplate(ctx context.Context, site Site, page Renderable) (*template.Template, error) {
+func getTemplate(ctx context.Context, site Site, page Page) (*template.Template, error) {
 	span := trace.SpanFromContext(ctx)
 	key := page.Key(ctx)
 	tmplPaths := getComponentTemplatePaths(ctx, page)

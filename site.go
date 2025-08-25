@@ -9,12 +9,12 @@ import (
 
 // Site is an interface for the singleton that will be used to render HTML.
 // Consumers should use it to store any clients or cross-request state they
-// need, and use it to render Renderables.
+// need, and use it to render Pages.
 //
 // A Site needs to be able to surface the templates it relies on as an fs.FS.
 type Site interface {
 	// TemplateDir returns an fs.FS containing all the templates needed to
-	// render every Renderable on the Site.
+	// render every Page on the Site.
 	//
 	// The path to templates within the fs.FS should match the output of
 	// TemplatePaths for Components.
@@ -22,8 +22,8 @@ type Site interface {
 }
 
 // TemplateCacher is an optional interface for Sites. Those fulfilling it can
-// cache their template parsing using the output of Key from each Renderable to
-// save on the overhead of parsing the template each time. The templates being
+// cache their template parsing using the output of Key from each Page to save
+// on the overhead of parsing the template each time. The templates being
 // parsed for a given key should be the same every time, as should the template
 // getting executed, but the data may still be different, so the output HTML
 // cannot be safely presumed to be cacheable.
@@ -64,7 +64,7 @@ type ResourceCacher interface {
 // If a Site implements ServerErrorPager and Render encounters an error,
 // the output of ServerErrorPage will be rendered.
 type ServerErrorPager interface {
-	ServerErrorPage(ctx context.Context) Renderable
+	ServerErrorPage(ctx context.Context) Page
 }
 
 var _ Site = &CachedSite{}

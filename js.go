@@ -35,7 +35,7 @@ type jsResource interface {
 
 // JSRenderData holds the information passed to the template when rendering the
 // template for a [JSInline] or [JSLink].
-type JSRenderData[SiteType Site, PageType Renderable] struct {
+type JSRenderData[SiteType Site, PageType Page] struct {
 	// JS is the JSInline struct being rendered. It may be empty if this
 	// data is for a JSLink instead.
 	JS JSInline
