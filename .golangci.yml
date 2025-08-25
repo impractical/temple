@@ -281,6 +281,7 @@ linters:
         text: does not use range value in test Run
       - linters:
           - goconst
+          - ireturn
         path: example_.*_test\.go
     paths:
       - third_party$

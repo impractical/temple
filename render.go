@@ -1,6 +1,7 @@
 package temple
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -98,6 +99,48 @@ type RenderData[SiteType Site, PageType Page] struct {
 	FooterJS template.HTML
 }
 
+// RenderOption is a private interface that modifies how the [Render] function
+// behaves. It's returned by a [RenderConfigurer].
+type RenderOption interface {
+	setRenderOpts(*renderOpts)
+}
+
+type renderOpts struct {
+	disablePageBuffering bool
+}
+
+// RenderConfigurer is an interface that a [Site], [Page], or [Component] can
+// fill that will modify how [Render] behaves when that Site, Page, or
+// Component is being rendered. In case more than one [Site], [Page], or
+// [Component] implements [RenderConfigurer], the [Component] will beat the
+// [Page] in any conflict, and the [Page] will beat the [Site]. Multiple
+// Components with conflicting [RenderOption]s have undefined behavior and the
+// winner is not guaranteed.
+type RenderConfigurer interface {
+	// ConfigureRender returns a list of options that modify how the Render
+	// function behaves.
+	ConfigureRender() []RenderOption
+}
+
+type renderOptionFunc func(*renderOpts)
+
+func (function renderOptionFunc) setRenderOpts(in *renderOpts) {
+	function(in)
+}
+
+// RenderOptionDisablePageBuffering provides a [RenderOption] for controlling
+// whether the rendered HTML will be buffered in memory before being written to
+// the [http.ResponseWriter] or not. The default is to buffer the HTML so any
+// errors in rendering it can be caught before the first byte is written. To
+// disable this default, return this function as a [RenderOption] from a
+// [RenderConfigurer], passing `true`. To override a previous [RenderOption]
+// and turn the buffering back on, pass `false`.
+func RenderOptionDisablePageBuffering(disable bool) RenderOption { //nolint:ireturn // have to return an interface, that's the whole point
+	return renderOptionFunc(func(opts *renderOpts) {
+		opts.disablePageBuffering = disable
+	})
+}
+
 // Render renders the passed Page to the Writer. If it can't, a server error
 // page is written instead. If the Site implements ServerErrorPager, that will
 // be rendered; if not, a simple text page indicating a server error will be
@@ -119,8 +162,32 @@ func Render[SiteType Site, PageType Page](ctx context.Context, out io.Writer, si
 	var span trace.Span
 	ctx, span = tracer.Start(ctx, "render")
 	defer span.End()
+
+	opts := renderOpts{}
+
+	if renderConfigurer, ok := any(site).(RenderConfigurer); ok {
+		for _, opt := range renderConfigurer.ConfigureRender() {
+			opt.setRenderOpts(&opts)
+		}
+	}
+
+	if renderConfigurer, ok := any(page).(RenderConfigurer); ok {
+		for _, opt := range renderConfigurer.ConfigureRender() {
+			opt.setRenderOpts(&opts)
+		}
+	}
+
+	components := getRecursiveComponents(ctx, page)
+	for _, component := range components {
+		if renderConfigurer, ok := any(component).(RenderConfigurer); ok {
+			for _, opt := range renderConfigurer.ConfigureRender() {
+				opt.setRenderOpts(&opts)
+			}
+		}
+	}
+
 	// try to render the page
-	err := basicRender(ctx, out, site, page)
+	err := basicRender(ctx, out, site, page, components, opts)
 
 	// if there's no error, we're done here
 	if err == nil {
@@ -141,7 +208,9 @@ func Render[SiteType Site, PageType Page](ctx context.Context, out io.Writer, si
 
 	// now let's render the server error page
 	if pager, ok := Site(site).(ServerErrorPager); ok {
-		err = basicRender(ctx, out, site, pager.ServerErrorPage(ctx))
+		errPage := pager.ServerErrorPage(ctx)
+		components := getRecursiveComponents(ctx, errPage)
+		err = basicRender(ctx, out, site, pager.ServerErrorPage(ctx), components, opts)
 		if err != nil {
 			// if we can't do that, everything's doomed, doomed, doomed
 			// just log it and we'll move on
@@ -159,13 +228,12 @@ func Render[SiteType Site, PageType Page](ctx context.Context, out io.Writer, si
 	}
 }
 
-func basicRender[SiteType Site, PageType Page](ctx context.Context, output io.Writer, site SiteType, page PageType) error {
+func basicRender[SiteType Site, PageType Page](ctx context.Context, output io.Writer, site SiteType, page PageType, components []Component, opts renderOpts) error { //nolint:revive // yeah six is a lot of args, but them's the breaks
 	tmpl, err := getTemplate(ctx, site, page)
 	if err != nil {
 		return err
 	}
 
-	components := getRecursiveComponents(ctx, page)
 	graphs := buildGraphs(ctx, components)
 	cssResources, err := walkGraph(ctx, graphs.css)
 	if err != nil {
@@ -278,9 +346,20 @@ func basicRender[SiteType Site, PageType Page](ctx context.Context, output io.Wr
 	}
 
 	executed := page.ExecutedTemplate(ctx)
-	err = tmpl.ExecuteTemplate(output, executed, data)
+	writer := output
+	var bufferedWriter bytes.Buffer
+	if !opts.disablePageBuffering {
+		writer = &bufferedWriter
+	}
+	err = tmpl.ExecuteTemplate(writer, executed, data)
 	if err != nil {
 		return fmt.Errorf("error executing template %q for %T: %w", executed, page, err)
+	}
+	if !opts.disablePageBuffering {
+		_, err = io.Copy(output, &bufferedWriter)
+		if err != nil {
+			return fmt.Errorf("error copying buffered output: %w", err)
+		}
 	}
 	return nil
 }

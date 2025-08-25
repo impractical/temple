@@ -44,6 +44,22 @@ Explicitly declaring a relationship to any other resources disables this implici
 temple is a layer on top of `html/template`, but it isn't attempting to proscribe how you write your HTML.
 It strives to offer the least-restrictive possible interface on top of `html/template`; just enough to create its Components system and resource-loading system.
 
+### Resilient to errors
+
+Every Site can fill a [ServerErrorPager](https://pkg.go.dev/impractical.co/temple#ServerErrorPager) interface, which describes an error page to render if there's a problem rendering the page.
+By default, Pages are rendered into memory before being copied over the wire, to prevent half a template from being sent.
+To disable this default behavior, have either a Site, Page, or Component (depending on whether you want the behavior disabled globally, per-Page, or only for Pages that include the Component) implement the [RenderConfigurer](https://pkg.go.dev/impractical.co/temple#RenderConfigurer) interface, and have it return [RenderOptionDisablePageBuffering](https://pkg.go.dev/impractical.co/temple#RenderOptionDisablePageBuffering) as one of the RenderOptions:
+
+```go
+func (Site) ConfigureRender() []temple.RenderOption {
+    return []temple.RenderOption{
+        temple.RenderOptionDisablePageBuffering(true),
+    }
+}
+```
+
+This will disable the buffering, allowing the HTML to be written as a stream.
+
 ## Examples
 
 See the [runnable, tested examples on pkg.go.dev](https://pkg.go.dev/impractical.co/temple#Render).
