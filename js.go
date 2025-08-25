@@ -119,6 +119,12 @@ type JSInline struct {
 	// the template, but that is the intention.
 	PlaceInFooter bool
 
+	// DisableImplicitOrdering, when set to true, disables the implicit
+	// ordering of resources within a Component for this block. It will not
+	// be required to come after the block before it in the []JSInline, and
+	// the block after it will not be required to be rendered after it.
+	DisableImplicitOrdering bool
+
 	// JSInlineRelationCalculator can be used to control how this <script>
 	// tag gets rendered in relation to any other <script> tag. If the
 	// function returns ResourceRelationshipAfter, this <script> tag will
@@ -328,6 +334,12 @@ type JSLink struct {
 	// loaded. Where these properties end up actually being placed is up to
 	// the template, but that is the intention.
 	PlaceInFooter bool
+
+	// DisableImplicitOrdering, when set to true, disables the implicit
+	// ordering of resources within a Component for this link. It will not
+	// be required to come after the link before it in the []JSLink, and
+	// the link after it will not be required to be rendered after it.
+	DisableImplicitOrdering bool
 
 	// JSInlineRelationCalculator can be used to control how this <script>
 	// tag gets rendered in relation to any other <script> tag. If the

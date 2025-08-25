@@ -91,6 +91,9 @@ func buildGraphs(ctx context.Context, components []Component) resourceGraphs {
 					continue
 				}
 				result.css.nodes = append(result.css.nodes, link)
+				if link.CSSInlineRelationCalculator != nil || link.CSSLinkRelationCalculator != nil || link.DisableImplicitOrdering {
+					continue
+				}
 				thisNode := len(result.css.nodes) - 1
 				if lastLink >= 0 {
 					if result.css.edgesFrom[thisNode] == nil {
@@ -115,6 +118,9 @@ func buildGraphs(ctx context.Context, components []Component) resourceGraphs {
 					continue
 				}
 				result.css.nodes = append(result.css.nodes, block)
+				if block.CSSInlineRelationCalculator != nil || block.CSSLinkRelationCalculator != nil || block.DisableImplicitOrdering {
+					continue
+				}
 				thisNode := len(result.css.nodes) - 1
 				if lastBlock >= 0 {
 					if result.css.edgesFrom[thisNode] == nil {
@@ -140,6 +146,9 @@ func buildGraphs(ctx context.Context, components []Component) resourceGraphs {
 						continue
 					}
 					result.footJS.nodes = append(result.footJS.nodes, link)
+					if link.JSInlineRelationCalculator != nil || link.JSLinkRelationCalculator != nil || link.DisableImplicitOrdering {
+						continue
+					}
 					thisNode := len(result.footJS.nodes) - 1
 					if lastFootLink >= 0 {
 						if result.footJS.edgesFrom[thisNode] == nil {
@@ -159,6 +168,9 @@ func buildGraphs(ctx context.Context, components []Component) resourceGraphs {
 						continue
 					}
 					result.headJS.nodes = append(result.headJS.nodes, link)
+					if link.JSInlineRelationCalculator != nil || link.JSLinkRelationCalculator != nil || link.DisableImplicitOrdering {
+						continue
+					}
 					thisNode := len(result.headJS.nodes) - 1
 					if lastHeadLink >= 0 {
 						if result.headJS.edgesFrom[thisNode] == nil {
@@ -185,6 +197,9 @@ func buildGraphs(ctx context.Context, components []Component) resourceGraphs {
 						continue
 					}
 					result.footJS.nodes = append(result.footJS.nodes, block)
+					if block.JSInlineRelationCalculator != nil || block.JSLinkRelationCalculator != nil || block.DisableImplicitOrdering {
+						continue
+					}
 					thisNode := len(result.footJS.nodes) - 1
 					if lastFootBlock >= 0 {
 						if result.footJS.edgesFrom[thisNode] == nil {
@@ -204,6 +219,9 @@ func buildGraphs(ctx context.Context, components []Component) resourceGraphs {
 						continue
 					}
 					result.headJS.nodes = append(result.headJS.nodes, block)
+					if block.JSInlineRelationCalculator != nil || block.JSLinkRelationCalculator != nil || block.DisableImplicitOrdering {
+						continue
+					}
 					thisNode := len(result.headJS.nodes) - 1
 					if lastHeadBlock >= 0 {
 						if result.headJS.edgesFrom[thisNode] == nil {
@@ -484,7 +502,7 @@ func walkGraph[Node any](_ context.Context, resources graph[Node]) ([]Node, erro
 		}
 	}
 	if len(resources.edgesTo) > 0 || len(resources.edgesFrom) > 0 {
-		var edgesTo, edgesFrom []string
+		var edgesTo, edgesFrom, resourceIDs []string
 		for k, v := range resources.edgesTo {
 			var vals []string
 			for val := range v {
@@ -499,7 +517,21 @@ func walkGraph[Node any](_ context.Context, resources graph[Node]) ([]Node, erro
 			}
 			edgesFrom = append(edgesFrom, fmt.Sprintf("%d:%s", k, strings.Join(vals, ",")))
 		}
-		return results, fmt.Errorf("%w: edges_to=[%s], edges_from=[%s]", ErrResourceCycle, strings.Join(edgesTo, "; "), strings.Join(edgesFrom, "; "))
+		for _, v := range resources.nodes {
+			switch res := any(v).(type) {
+			case CSSLink:
+				resourceIDs = append(resourceIDs, fmt.Sprintf("CSSLink(%s)", res.Href))
+			case CSSInline:
+				resourceIDs = append(resourceIDs, fmt.Sprintf("CSSInline(%s)", res.TemplatePath))
+			case JSLink:
+				resourceIDs = append(resourceIDs, fmt.Sprintf("JSLink(%s)", res.Src))
+			case JSInline:
+				resourceIDs = append(resourceIDs, fmt.Sprintf("JSInline(%s)", res.TemplatePath))
+			default:
+				resourceIDs = append(resourceIDs, fmt.Sprintf("UnidentifiedResource(%T)", res))
+			}
+		}
+		return results, fmt.Errorf("%w: edges_to=[%s], edges_from=[%s], resources=[%s]", ErrResourceCycle, strings.Join(edgesTo, "; "), strings.Join(edgesFrom, "; "), strings.Join(resourceIDs, ", "))
 	}
 	return results, nil
 }

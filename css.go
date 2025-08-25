@@ -103,6 +103,12 @@ type CSSInline struct {
 	// being merged with any other <style> block.
 	DisableElementMerge bool
 
+	// DisableImplicitOrdering, when set to true, disables the implicit
+	// ordering of resources within a Component for this block. It will not
+	// be required to come after the block before it in the []CSSInline,
+	// and the block after it will not be required to be rendered after it.
+	DisableImplicitOrdering bool
+
 	// CSSLinkRelationCalculator can be used to control how this <link> tag
 	// gets rendered in relation to any other CSS <link> tag. If the
 	// function returns ResourceRelationshipAfter, this <link> tag will
@@ -266,6 +272,12 @@ type CSSLink struct {
 	// Attrs holds any additional non-standard or unsupported attributes
 	// that should be set on the <link> tag that will be generated.
 	Attrs map[string]string
+
+	// DisableImplicitOrdering, when set to true, disables the implicit
+	// ordering of resources within a Component for this link. It will not
+	// be required to come after the link before it in the []CSSLink, and
+	// the link after it will not be required to be rendered after it.
+	DisableImplicitOrdering bool
 
 	// CSSLinkRelationCalculator can be used to control how this <link> tag
 	// gets rendered in relation to any other CSS link tag. If the function
