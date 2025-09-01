@@ -438,7 +438,7 @@ func getTemplate(ctx context.Context, site Site, page Page) (*template.Template,
 	funcMap := getComponentFuncMap(ctx, site, page)
 	parsed, err := parseTemplates(site.TemplateDir(ctx), funcMap, tmplPaths...)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing templates %v for page %T: %w", page, tmplPaths, err)
+		return nil, fmt.Errorf("error parsing templates %v for page %T: %w", tmplPaths, page, err)
 	}
 	if cache, ok := site.(TemplateCacher); ok {
 		cache.SetCachedTemplate(ctx, key, parsed)
