@@ -80,23 +80,23 @@ func TestCachedSite(t *testing.T) {
 		},
 	})
 	site := temple.NewCachedSite(templateFS)
-	renderChangeAndRerender(t, ctx, templateFS, CachedSiteFoo{}, site, "foo.tmpl", "foo.tmpl")
-	renderChangeAndRerender(t, ctx, templateFS, CachedSiteBar{}, site, "bar.tmpl", "bar.tmpl")
-	renderChangeAndRerender(t, ctx, templateFS, CachedSiteBar{IncludeBaz: true}, site, "bar.tmpl", "bar.tmpl included baz.tmpl")
+	renderChangeAndRerender(ctx, t, templateFS, CachedSiteFoo{}, site, "foo.tmpl", "foo.tmpl")
+	renderChangeAndRerender(ctx, t, templateFS, CachedSiteBar{}, site, "bar.tmpl", "bar.tmpl")
+	renderChangeAndRerender(ctx, t, templateFS, CachedSiteBar{IncludeBaz: true}, site, "bar.tmpl", "bar.tmpl included baz.tmpl")
 }
 
-func renderChangeAndRerender(t *testing.T, ctx context.Context, fs fstest.MapFS, page temple.Page, site temple.Site, file, expected string) {
+func renderChangeAndRerender(ctx context.Context, t *testing.T, templates fstest.MapFS, page temple.Page, site temple.Site, file, expected string) { //nolint:revive // it's a lot of arguments, but it's a specialty helper function
 	var out bytes.Buffer
 	temple.Render(ctx, &out, site, page)
 	if output := out.String(); output != expected {
 		t.Errorf("Expected to get %q, got %q", expected, output)
 	}
 	out.Reset()
-	oldData := slices.Clone(fs[file].Data)
-	fs[file].Data = []byte(strings.ReplaceAll(string(fs[file].Data), expected, "changed-"+expected))
+	oldData := slices.Clone(templates[file].Data)
+	templates[file].Data = []byte(strings.ReplaceAll(string(templates[file].Data), expected, "changed-"+expected))
 	temple.Render(ctx, &out, site, page)
 	if output := out.String(); output != expected {
 		t.Errorf("Expected to get %q after modifying underlying data, got %q", expected, output)
 	}
-	fs[file].Data = oldData
+	templates[file].Data = oldData
 }
