@@ -18,6 +18,20 @@ type FuncMapSite struct {
 	Title string
 }
 
+func (site FuncMapSite) FuncMap(_ context.Context) template.FuncMap {
+	// these functions will be available to all components and pages
+	return template.FuncMap{
+		"applesAndOranges": func(in []string) []string {
+			for pos, fruit := range in {
+				if strings.ToLower(fruit) == "apples" {
+					in[pos] = "oranges"
+				}
+			}
+			return in
+		},
+	}
+}
+
 type FuncMapHomePage struct {
 	Name   string
 	Fruits []string
@@ -44,6 +58,7 @@ func (page FuncMapHomePage) ExecutedTemplate(_ context.Context) string {
 
 func (FuncMapHomePage) FuncMap(_ context.Context) template.FuncMap {
 	return template.FuncMap{
+		// this function is only available to the homepage
 		"humanize": func(input []string) string {
 			if len(input) < 1 {
 				return ""
@@ -72,7 +87,7 @@ func ExampleRender_funcMaps() {
 	// normally you'd use something like embed.FS or os.DirFS for this
 	// for example purposes, we're just hardcoding values
 	var templates = staticFS{
-		"home.html.tmpl": `{{ define "body" }}Hello, {{ .Page.Name }}. This is my home page. I like {{ humanize .Page.Fruits }}.{{ end }}`,
+		"home.html.tmpl": `{{ define "body" }}Hello, {{ .Page.Name }}. This is my home page. I like {{ humanize (applesAndOranges .Page.Fruits) }}.{{ end }}`,
 		"base.html.tmpl": `
 <!doctype html>
 <html lang="en">
@@ -108,6 +123,6 @@ func ExampleRender_funcMaps() {
 	// 	<head>
 	// 		<title>My Example Site</title></head>
 	// 	<body>
-	// 		Hello, Visitor. This is my home page. I like apples, bananas, and oranges.</body>
+	// 		Hello, Visitor. This is my home page. I like oranges, bananas, and oranges.</body>
 	// </html>
 }
