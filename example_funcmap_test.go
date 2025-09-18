@@ -18,16 +18,16 @@ type FuncMapSite struct {
 	Title string
 }
 
-func (site FuncMapSite) FuncMap(_ context.Context) template.FuncMap {
+func (FuncMapSite) FuncMap(_ context.Context) template.FuncMap {
 	// these functions will be available to all components and pages
 	return template.FuncMap{
-		"applesAndOranges": func(in []string) []string {
-			for pos, fruit := range in {
+		"applesAndOranges": func(input []string) []string {
+			for pos, fruit := range input {
 				if strings.ToLower(fruit) == "apples" {
-					in[pos] = "oranges"
+					input[pos] = "oranges"
 				}
 			}
-			return in
+			return input
 		},
 	}
 }
